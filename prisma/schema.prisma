@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+
+  recordedMatches Match[] @relation("RecordedByAdmin")
+}
+
+model Season {
+  id            String    @id @default(cuid())
+  name          String
+  startDate     DateTime
+  endDate       DateTime?
+  isActive      Boolean   @default(false)
+  pointsForWin  Int       @default(3)
+  pointsForDraw Int       @default(1)
+  pointsForLoss Int       @default(0)
+  allowDraws    Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  entries SeasonEntry[]
+  matches Match[]
+}
+
+model Player {
+  id           String   @id @default(cuid())
+  name         String
+  gamertag     String   @unique
+  email        String?
+  photoUrl     String?
+  favoriteClub String?
+  bio          String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  seasonEntries SeasonEntry[]
+  homeMatches   Match[]       @relation("HomePlayer")
+  awayMatches   Match[]       @relation("AwayPlayer")
+}
+
+model SeasonEntry {
+  id       String   @id @default(cuid())
+  playerId String
+  seasonId String
+  joinedAt DateTime @default(now())
+  isActive Boolean  @default(true)
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, seasonId])
+  @@index([seasonId])
+}
+
+enum MatchStatus {
+  SCHEDULED
+  COMPLETED
+  POSTPONED
+  CANCELLED
+  WALKOVER
+}
+
+model Match {
+  id                String      @id @default(cuid())
+  seasonId          String
+  round             Int
+  scheduledAt       DateTime
+  status            MatchStatus @default(SCHEDULED)
+  homePlayerId      String
+  awayPlayerId      String
+  homeScore         Int?
+  awayScore         Int?
+  homeClubUsed      String?
+  awayClubUsed      String?
+  venue             String?
+  notes             String?
+  recordedByAdminId String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  season          Season     @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  homePlayer      Player     @relation("HomePlayer", fields: [homePlayerId], references: [id], onDelete: Restrict)
+  awayPlayer      Player     @relation("AwayPlayer", fields: [awayPlayerId], references: [id], onDelete: Restrict)
+  recordedByAdmin AdminUser? @relation("RecordedByAdmin", fields: [recordedByAdminId], references: [id], onDelete: SetNull)
+
+  @@unique([seasonId, round, homePlayerId, awayPlayerId])
+  @@index([seasonId, status])
+  @@index([homePlayerId])
+  @@index([awayPlayerId])
+}
